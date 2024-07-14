@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,49 +8,38 @@ import {
   Alert,
 } from "react-native";
 import { auth } from "../../firebaseConfig";
-import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 
-const LoginView = ({ navigation }) => {
+const SignUpView = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  useEffect(() => {
-    const loadSavedEmail = async () => {
-      try {
-        const savedEmail = await AsyncStorage.getItem("userEmail");
-        if (savedEmail) setEmail(savedEmail);
-      } catch (error) {
-        console.error("Error loading saved email:", error);
-      }
-    };
+  const handleSignUp = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords don't match");
+      return;
+    }
 
-    loadSavedEmail();
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // User is signed in, navigate to Home screen
-        navigation.replace("Home");
-      }
-    });
-
-    return () => unsubscribe();
-  }, [navigation]);
-
-  const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       await AsyncStorage.setItem("userEmail", email);
+      Alert.alert("Success", "Account created successfully");
       navigation.replace("Home");
     } catch (error) {
       let errorMessage = "An error occurred. Please try again.";
-      if (error.code === "auth/invalid-email") {
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already in use.";
+      } else if (error.code === "auth/invalid-email") {
         errorMessage = "The email address is badly formatted.";
-      } else if (error.code === "auth/user-not-found") {
-        errorMessage = "No user found with this email.";
-      } else if (error.code === "auth/wrong-password") {
-        errorMessage = "The password is incorrect.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "The password is too weak.";
       }
       Alert.alert("Error", errorMessage);
     }
@@ -61,7 +50,7 @@ const LoginView = ({ navigation }) => {
       colors={["#4c669f", "#3b5998", "#192f6a"]}
       style={styles.container}
     >
-      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.title}>Create Account</Text>
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -80,12 +69,20 @@ const LoginView = ({ navigation }) => {
           onChangeText={setPassword}
           secureTextEntry
         />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          placeholderTextColor="#b3b3b3"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+        />
       </View>
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignUp}>
+        <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
-        <Text style={styles.signUpText}>Don't have an account? Sign Up</Text>
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <Text style={styles.loginText}>Already have an account? Log In</Text>
       </TouchableOpacity>
     </LinearGradient>
   );
@@ -126,11 +123,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  signUpText: {
+  loginText: {
     color: "#ffffff",
     marginTop: 20,
     textAlign: "center",
   },
 });
 
-export default LoginView;
+export default SignUpView;
