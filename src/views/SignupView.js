@@ -7,12 +7,15 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { auth } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { setDoc, doc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 
 const SignUpView = ({ navigation }) => {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,6 +32,18 @@ const SignUpView = ({ navigation }) => {
         email,
         password
       );
+      const user = userCredential.user;
+
+      // Store user info in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: user.email,
+        firstName: firstName,
+        lastName: lastName,
+        stepcount: 0, // Initial step count
+        lastUpdatedAt: new Date(),
+      });
+
       await AsyncStorage.setItem("userEmail", email);
       Alert.alert("Success", "Account created successfully");
       navigation.replace("Home");
@@ -52,6 +67,22 @@ const SignUpView = ({ navigation }) => {
     >
       <Text style={styles.title}>Create Account</Text>
       <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="First Name"
+          placeholderTextColor="#b3b3b3"
+          value={firstName}
+          onChangeText={setFirstName}
+          autoCapitalize="words"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Last Name"
+          placeholderTextColor="#b3b3b3"
+          value={lastName}
+          onChangeText={setLastName}
+          autoCapitalize="words"
+        />
         <TextInput
           style={styles.input}
           placeholder="Email"

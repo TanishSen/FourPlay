@@ -7,8 +7,9 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { auth } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { getDoc, setDoc, doc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -28,9 +29,17 @@ const LoginView = ({ navigation }) => {
 
     loadSavedEmail();
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is signed in, navigate to Home screen
+        // User is signed in, check if the user is already stored in Firestore
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (!userDoc.exists) {
+          await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            email: user.email,
+          });
+        }
+        // Navigate to Home screen
         navigation.replace("Home");
       }
     });
@@ -40,8 +49,22 @@ const LoginView = ({ navigation }) => {
 
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
       await AsyncStorage.setItem("userEmail", email);
+      // Check if the user is already stored in Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists) {
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: user.email,
+        });
+      }
       navigation.replace("Home");
     } catch (error) {
       let errorMessage = "An error occurred. Please try again.";
